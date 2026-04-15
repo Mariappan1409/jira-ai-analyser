@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { searchEpic, getEpicStories, getAllEpics } from "../api/jira";
 import { db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
-// Corrected import path based on your folder structure
 import { askGemini, buildEpicContext } from "../ai/gemini"; 
 
 export default function Home() {
@@ -16,7 +15,6 @@ export default function Home() {
   const [epics, setEpics] = useState([]);
 
   const [question, setQuestion] = useState("");
-  // CHANGED: Now using an array to store chat history
   const [chatHistory, setChatHistory] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -51,7 +49,6 @@ export default function Home() {
     if (!key) return;
 
     setLoading(true);
-    // Reset chat when searching for a new epic
     setChatHistory([]);
 
     const epicData = await searchEpic(config, key);
@@ -65,33 +62,27 @@ export default function Home() {
     setLoading(false);
   };
 
-  // FIXED AI LOGIC TO SUPPORT CHAT
   const askAI = async () => {
     if (!question || !data) return;
 
     const userMsg = question;
-    setQuestion(""); // Clear input immediately
-    
-    // Add user question to chat UI immediately
+    setQuestion("");
+
     const newChat = [...chatHistory, { role: "user", text: userMsg }];
     setChatHistory(newChat);
     setAiLoading(true);
 
     try {
-      // 1. Create the detailed context using your helper
       const epicContext = buildEpicContext(data.epic, data.stories);
-      
-      // 2. Build history string to maintain conversation flow
+
       const historyString = newChat
         .map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`)
         .join("\n");
 
       const fullContextWithHistory = `${epicContext}\n\nRecent Conversation:\n${historyString}`;
 
-      // 3. Send to Gemini
       const response = await askGemini(fullContextWithHistory, userMsg);
 
-      // 4. Update history with AI response
       setChatHistory([...newChat, { role: "ai", text: response }]);
     } catch (error) {
       console.error("Gemini Error:", error);
@@ -102,197 +93,228 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+  <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200">
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center px-8 py-4 bg-white shadow">
-        <h1 className="text-xl font-semibold text-blue-600">
-          Jira Analyzer
-        </h1>
+    {/* HEADER */}
+    <div className="flex flex-col md:flex-row justify-between items-center gap-4 px-6 md:px-10 py-5 bg-white/80 backdrop-blur shadow-sm sticky top-0 z-10">
+      <h1 className="text-2xl font-bold text-blue-600 tracking-tight">
+        Jira Analyzer
+      </h1>
 
+      <button
+        onClick={() => navigate("/config")}
+        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 transition text-white rounded-xl shadow-md"
+      >
+        Configure
+      </button>
+    </div>
+
+    {!config && (
+      <div className="flex items-center justify-center h-[80vh]">
         <button
           onClick={() => navigate("/config")}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+          className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg text-lg"
         >
-          Configure
+          Connect Jira
         </button>
       </div>
+    )}
 
-      {!config && (
-        <div className="flex items-center justify-center h-[80vh]">
-          <button
-            onClick={() => navigate("/config")}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg"
-          >
-            Connect Jira
-          </button>
-        </div>
-      )}
+    {config && (
+      <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      {config && (
-        <div className="p-8 grid grid-cols-3 gap-6">
+        {/* LEFT PANEL */}
+        <div className="space-y-6">
 
-          {/* LEFT */}
-          <div className="col-span-1 space-y-6">
+          {/* SEARCH */}
+          <div className="bg-white/80 backdrop-blur p-5 rounded-2xl shadow-lg border">
+            <h2 className="font-semibold mb-3 text-gray-700">
+              Search Issue / Epic
+            </h2>
 
-            <div className="bg-white p-5 rounded-xl shadow">
-              <h2 className="font-semibold mb-3">
-                Search Issue / Epic
-              </h2>
+            <div className="flex gap-2">
+              <input
+                value={epic || ""}
+                onChange={(e) => setEpic(e.target.value)}
+                placeholder="KAN-4"
+                className="flex-1 border border-gray-300 focus:ring-2 focus:ring-blue-500 p-2 rounded-lg outline-none"
+              />
 
-              <div className="flex gap-2">
-                <input
-                  value={epic || ""}
-                  onChange={(e) => setEpic(e.target.value)}
-                  placeholder="KAN-4"
-                  className="flex-1 border p-2 rounded"
-                />
-
-                <button
-                  onClick={() => search()}
-                  className="px-4 bg-blue-600 text-white rounded"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-xl shadow h-[520px] overflow-y-auto">
-              <h2 className="font-semibold mb-3">
-                All Issues
-              </h2>
-
-              {epics.map((ep) => (
-                <div
-                  key={ep.key}
-                  onClick={() => search(ep.key)}
-                  className="p-3 border rounded-lg mb-2 cursor-pointer hover:bg-blue-50"
-                >
-                  <div className="flex justify-between">
-                    <span className="font-medium">
-                      {ep.key}
-                    </span>
-
-                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                      {ep.fields?.issuetype?.name}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-gray-600">
-                    {ep.fields?.summary}
-                  </p>
-                </div>
-              ))}
+              <button
+                onClick={() => search()}
+                className="px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow"
+              >
+                Search
+              </button>
             </div>
           </div>
 
-          {/* RIGHT */}
-          <div className="col-span-2 space-y-6">
+          {/* EPICS LIST */}
+          <div className="bg-white/80 backdrop-blur p-5 rounded-2xl shadow-lg border h-[500px] overflow-y-auto">
+            <h2 className="font-semibold mb-4 text-gray-700">
+              All Issues
+            </h2>
 
-            {loading && (
-              <div className="bg-white p-6 rounded-xl shadow">
-                Loading...
-              </div>
-            )}
+            {epics.map((ep) => (
+              <div
+                key={ep.key}
+                onClick={() => search(ep.key)}
+                className="p-4 rounded-xl border mb-3 cursor-pointer transition hover:shadow-md hover:bg-blue-50"
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-gray-800">
+                    {ep.key}
+                  </span>
 
-            {data && (
-              <>
-                <div className="bg-white p-6 rounded-xl shadow">
-                  <h2 className="font-semibold text-lg">
-                    {data.epic.key}
-                  </h2>
-
-                  <p className="text-gray-600">
-                    {data.epic.fields.summary}
-                  </p>
+                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
+                    {ep.fields?.issuetype?.name}
+                  </span>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow">
-                  <h2 className="font-semibold mb-4">
-                    Stories
-                  </h2>
+                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                  {ep.fields?.summary}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
 
-                  {data.stories.map((story) => (
-                    <div
-                      key={story.key}
-                      onClick={() =>
-                        navigate(`/child/${story.key}`)
-                      }
-                      className="border p-4 rounded-lg mb-2 cursor-pointer hover:bg-gray-50"
-                    >
-                      <div className="flex justify-between">
-                        <span className="font-medium">
-                          {story.key}
-                        </span>
+        {/* RIGHT PANEL */}
+        <div className="lg:col-span-2 space-y-6">
 
-                        <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                          {story.fields.status?.name}
-                        </span>
+          {loading && (
+            <div className="bg-white p-6 rounded-2xl shadow animate-pulse">
+              Loading...
+            </div>
+          )}
+
+          {data && (
+            <>
+              {/* EPIC DETAILS */}
+              <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border">
+                <h2 className="font-bold text-xl text-gray-800">
+                  {data.epic.key}
+                </h2>
+
+                <p className="text-gray-600 mt-2">
+                  {data.epic.fields.summary}
+                </p>
+
+                {data.epic.fields?.attachment?.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-semibold text-gray-700 mb-2">
+                      Attachments
+                    </h3>
+
+                    {data.epic.fields.attachment.map((file) => (
+                      <a
+                        key={file.id}
+                        href={file.content}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block text-sm text-blue-600 hover:underline"
+                      >
+                        📎 {file.filename}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* STORIES */}
+              <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border">
+                <h2 className="font-semibold mb-4 text-gray-700">
+                  Stories
+                </h2>
+
+                {data.stories.map((story) => (
+                  <div
+                    key={story.key}
+                    onClick={() => navigate(`/child/${story.key}`)}
+                    className="border p-4 rounded-xl mb-3 cursor-pointer transition hover:shadow-md hover:bg-gray-50"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">
+                        {story.key}
+                      </span>
+
+                      <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                        {story.fields.status?.name}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mt-1">
+                      {story.fields.summary}
+                    </p>
+
+                    {story.fields?.attachment?.length > 0 && (
+                      <div className="mt-2">
+                        {story.fields.attachment.map((file) => (
+                          <a
+                            key={file.id}
+                            href={file.content}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 block hover:underline"
+                          >
+                            📎 {file.filename}
+                          </a>
+                        ))}
                       </div>
+                    )}
+                  </div>
+                ))}
+              </div>
 
-                      <p className="text-sm text-gray-600">
-                        {story.fields.summary}
-                      </p>
+              {/* CHAT */}
+              <div className="bg-white/90 backdrop-blur p-6 rounded-2xl shadow-lg border flex flex-col h-[450px]">
+                <h2 className="font-semibold mb-3 text-gray-700">
+                  AI Chatbot ({data.epic.key})
+                </h2>
+
+                <div className="flex-1 overflow-y-auto mb-4 space-y-3 pr-2">
+                  {chatHistory.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-xl max-w-[80%] ${
+                        msg.role === "user"
+                          ? "bg-blue-600 text-white ml-auto"
+                          : "bg-gray-200 text-gray-800"
+                      }`}
+                    >
+                      {msg.text}
                     </div>
                   ))}
+
+                  {aiLoading && (
+                    <p className="text-gray-500 text-sm">
+                      Thinking...
+                    </p>
+                  )}
                 </div>
 
-                {/* UPDATED GEMINI SECTION FOR CHATTING */}
-                <div className="bg-white p-6 rounded-xl shadow flex flex-col h-[500px]">
-                  <h2 className="font-semibold mb-3">
-                    AI Chatbot (Analyzing {data.epic.key})
-                  </h2>
+                <div className="flex gap-2 border-t pt-3">
+                  <input
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && askAI()}
+                    placeholder="Ask something..."
+                    className="flex-1 border p-2 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
 
-                  {/* MESSAGES AREA */}
-                  <div className="flex-1 overflow-y-auto mb-4 space-y-4 pr-2">
-                    {chatHistory.length === 0 && (
-                      <p className="text-gray-400 text-center mt-10">Ask me anything about this Epic or its stories.</p>
-                    )}
-                    {chatHistory.map((msg, i) => (
-                      <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                          <p className="text-xs font-bold mb-1 uppercase opacity-70">
-                            {msg.role === 'user' ? 'You' : 'Gemini'}
-                          </p>
-                          <div className="whitespace-pre-wrap">{msg.text}</div>
-                        </div>
-                      </div>
-                    ))}
-                    {aiLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-gray-100 p-3 rounded-lg animate-pulse text-gray-500 italic">
-                          Gemini is typing...
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* INPUT AREA */}
-                  <div className="flex gap-2 border-t pt-4">
-                    <input
-                      value={question}
-                      onChange={(e) => setQuestion(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && askAI()}
-                      placeholder="Ask a follow-up question..."
-                      className="flex-1 border p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-
-                    <button
-                      onClick={askAI}
-                      disabled={aiLoading}
-                      className={`px-4 bg-black text-white rounded ${aiLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      Send
-                    </button>
-                  </div>
+                  <button
+                    onClick={askAI}
+                    className="px-5 bg-black hover:bg-gray-800 text-white rounded-lg"
+                  >
+                    Send
+                  </button>
                 </div>
-              </>
-            )}
-
-          </div>
-
+              </div>
+            </>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    )}
+  </div>
   );
 }

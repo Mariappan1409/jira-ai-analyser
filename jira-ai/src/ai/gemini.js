@@ -10,13 +10,11 @@ export const askGemini = async (context, question) => {
 
     const data = await res.json();
 
-    // Check if the backend returned an error object instead of Gemini data
     if (data.error) {
       console.error("Backend Error:", data.error);
       return `AI Error: ${data.error}`;
     }
 
-    // Extract the text content safely
     const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     return aiText || "AI was unable to generate a response.";
@@ -26,19 +24,47 @@ export const askGemini = async (context, question) => {
   }
 };
 
-// IMPROVED: This ensures the AI gets enough details to actually be useful
+
+// ✅ UPDATED CONTEXT WITH ATTACHMENTS
 export const buildEpicContext = (epic, stories) => {
   if (!epic) return "No epic data found.";
 
   let ctx = `=== EPIC DETAILS ===\n`;
   ctx += `Key: ${epic.key}\nSummary: ${epic.fields.summary}\n`;
-  ctx += `Description: ${epic.fields.description?.content?.[0]?.content?.[0]?.text || "No description"}\n\n`;
+  ctx += `Description: ${epic.fields.description?.content?.[0]?.content?.[0]?.text || "No description"}\n`;
+
+  // ✅ EPIC ATTACHMENTS
+  if (epic.fields?.attachment?.length > 0) {
+    ctx += `Attachments:\n`;
+    epic.fields.attachment.forEach((file) => {
+      ctx += `- ${file.filename}\n`;
+    });
+  } else {
+    ctx += `Attachments: None\n`;
+  }
+
+  ctx += `\n`;
 
   ctx += `=== STORIES ===\n`;
   stories.forEach((s) => {
-    const desc = s.fields?.description?.content?.[0]?.content?.[0]?.text || "No description";
+    const desc =
+      s.fields?.description?.content?.[0]?.content?.[0]?.text ||
+      "No description";
+
     ctx += `- [${s.key}] ${s.fields.summary} (${s.fields.status?.name || "No Status"})\n`;
-    ctx += `  Desc: ${desc}\n\n`;
+    ctx += `  Desc: ${desc}\n`;
+
+    // ✅ STORY ATTACHMENTS
+    if (s.fields?.attachment?.length > 0) {
+      ctx += `  Attachments:\n`;
+      s.fields.attachment.forEach((file) => {
+        ctx += `   - ${file.filename}\n`;
+      });
+    } else {
+      ctx += `  Attachments: None\n`;
+    }
+
+    ctx += `\n`;
   });
 
   return ctx;
