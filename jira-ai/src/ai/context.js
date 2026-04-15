@@ -51,6 +51,6 @@ export const buildFullJiraContext = (epic, stories) => {
 
     context += `\n`;
   });
-
+;
   return context;
-};
+}
