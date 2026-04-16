@@ -1,3 +1,7 @@
+import dotenv from "dotenv";
+// Tell dotenv to specifically look for the "API.env" file
+dotenv.config({ path: "./API.env" });
+
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -46,8 +50,8 @@ app.post("/api/ask-ai", async (req, res) => {
   try {
     const { context, question } = req.body;
 
-    // ⚠️ Put your NEW API key here inside the quotes
-    const API_KEY = "AIzaSyAAYyR5tzj7gV3-6BYC7HBL1vQzs1vRjOY";
+    // We get the API key safely from your API.env file
+    const API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
     // We will test only ONE model
     const MODEL = "gemini-2.5-flash"; 

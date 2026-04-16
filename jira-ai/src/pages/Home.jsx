@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
 
-// Make sure these paths match your project folders
-import { db } from "../firebase";
+// Removed firebase imports since we use localStorage now
 import { searchEpic, getEpicStories } from "../api/jira";
 import { askGemini, buildEpicContext } from "../ai/gemini";
 
@@ -28,12 +26,17 @@ export function Home() {
     return list.map((i) => i.issue || i);
   };
 
-  const loadConfig = async () => {
-    const snap = await getDoc(doc(db, "config", "jira"));
-    if (snap.exists()) {
-      const cfg = snap.data();
-      setConfig(cfg);
-      // We no longer fetch all epics to save performance
+  const loadConfig = () => {
+    // Read the saved details from the browser's local storage instead of Firebase
+    const savedConfig = localStorage.getItem("jiraConfig");
+    
+    if (savedConfig) {
+      try {
+        const cfg = JSON.parse(savedConfig);
+        setConfig(cfg);
+      } catch (error) {
+        console.error("Could not load config", error);
+      }
     }
   };
 
@@ -133,7 +136,6 @@ export function Home() {
                 </button>
               </div>
             </div>
-            {/* Epic List Removed for better performance */}
           </div>
 
           {/* RIGHT PANEL */}
@@ -199,7 +201,7 @@ export function Home() {
                         {story.fields?.summary}
                       </p>
 
-                      {/* Story Attachments (Inside Epic View) */}
+                      {/* Story Attachments */}
                       {story.fields?.attachment?.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           {story.fields.attachment.map((file) => (

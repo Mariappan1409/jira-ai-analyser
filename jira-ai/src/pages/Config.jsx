@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { db } from "../firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 export default function Config() {
@@ -15,26 +13,31 @@ export default function Config() {
     load();
   }, []);
 
-  const load = async () => {
-    const snap = await getDoc(doc(db, "config", "jira"));
+  const load = () => {
+    // Read the saved details from the browser's local storage
+    const savedConfig = localStorage.getItem("jiraConfig");
 
-    if (snap.exists()) {
-      const data = snap.data();
-
-      setJiraUrl(data.jiraUrl || "");
-      setEmail(data.email || "");
-      setApiToken(data.apiToken || "");
+    if (savedConfig) {
+      try {
+        const data = JSON.parse(savedConfig);
+        setJiraUrl(data.jiraUrl || "");
+        setEmail(data.email || "");
+        setApiToken(data.apiToken || "");
+      } catch (error) {
+        console.error("Could not load config", error);
+      }
     }
 
     setLoaded(true);
   };
 
-  const save = async () => {
-    await setDoc(doc(db, "config", "jira"), {
+  const save = () => {
+    // Save the details to the browser's local storage
+    localStorage.setItem("jiraConfig", JSON.stringify({
       jiraUrl,
       email,
       apiToken,
-    });
+    }));
 
     navigate("/");
   };
